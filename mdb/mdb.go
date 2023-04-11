@@ -56,5 +56,59 @@ func emailEntryFromRow(row *sql.Rows) (*EmailEntry, error) {
 
 func CreateEmail(db *sql.DB, email string) error {
 	_, err := db.Exec(`INSERT INTO
-						emails(email, confirmed_at, opt_out)`)
+						emails(email, confirmed_at, opt_out) 
+						values(?, 0, false)`, email)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	return nil
+}
+
+func GetEmail(db *sql.DB, email string) (*EmailEntry, error) {
+	rows, err := db.Query(`select id, email, confirmed_at, opt_out
+						from emails where
+						email = ?`, email)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		return emailEntryFromRow(rows)
+	}
+	return nil, nil
+}
+
+func UpdateEmail(db *sql.DB, entry EmailEntry) error {
+	t := entry.ConfirmedAt.Unix()
+	_, err := db.Exec(`INSERT INTO
+						emails(email, confirmed_at, opt_out) 
+						values(?, ?, ?)
+						ON CONFLICT(email) DO UPDATE SET
+						confirmed_at=?
+						opt_out=?`, entry.Email, t, entry.OptOut, t, entry.OptOut)
+
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	return nil
+}
+
+func DeleteEmail(db *sql.DB, email string) error {
+	_, err := db.Exec(`UPDATE emails
+							SET opt_out=true
+							WHERE
+							email = ?`, email)
+	if err != nil {
+		log.Panicln(err)
+		return err
+	}
+
+	return nil
 }
