@@ -59,7 +59,7 @@ func CreateEmail(db *sql.DB, email string) error {
 						emails(email, confirmed_at, opt_out) 
 						values(?, 0, false)`, email)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return err
 	}
 
@@ -71,7 +71,7 @@ func GetEmail(db *sql.DB, email string) (*EmailEntry, error) {
 						from emails where
 						email = ?`, email)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return err
 	}
 
@@ -93,7 +93,7 @@ func UpdateEmail(db *sql.DB, entry EmailEntry) error {
 						opt_out=?`, entry.Email, t, entry.OptOut, t, entry.OptOut)
 
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return err
 	}
 
@@ -106,9 +106,43 @@ func DeleteEmail(db *sql.DB, email string) error {
 							WHERE
 							email = ?`, email)
 	if err != nil {
-		log.Panicln(err)
+		log.Println(err)
 		return err
 	}
 
 	return nil
+}
+
+type GetEmailBatchQueryParams struct {
+	Page int
+	Count int
+}
+
+func GetEmailBatch(db *sql.DB, params GetEmailBatchQueryParams)([]EmailEntry, error){
+	var empty [] EmailEntry
+
+	row, err := db.Query(`select id, email, confirmed_at, opt_out
+												from emails where opt_out = false
+												order by id asc
+												limit ? offset ?`, params.Count, (params.Page = 1) * params.Count
+											
+			)
+		if err != nil {
+			log.Println(err)
+			return empty, err
+		}
+
+		defer rows.Close()
+
+		emails := make([]EmailEntry, 0, params.Count)
+
+		for rows.Next(){
+			email, err := emailEntryFromRow(rows)
+			if err != nil{
+				return nil, err
+			}
+			emails = append(emails, *email)
+		}
+
+		return emails, nil
 }
